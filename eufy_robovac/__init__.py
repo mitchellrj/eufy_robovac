@@ -15,3 +15,8 @@
 # limitations under the License.
 
 from .robovac import Robovac
+
+try:
+    from .platform import *
+except ImportError:
+    pass
