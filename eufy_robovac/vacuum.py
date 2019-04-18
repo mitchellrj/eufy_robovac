@@ -71,12 +71,12 @@ class EufyVacuum(VacuumDevice):
         self._name = device_config['name']
 
     async def async_update(self):
-        """Synchronise state from the bulb."""
+        """Synchronise state from the vacuum."""
         await self.robovac.async_get()
 
     @property
     def unique_id(self):
-        """Return the ID of this light."""
+        """Return the ID of this vacuum."""
         return self._device_id
 
     @property
@@ -126,6 +126,8 @@ class EufyVacuum(VacuumDevice):
         elif self.robovac.work_status == robovac.WorkStatus.SLEEPING:
             return STATE_DOCKED
         elif self.robovac.work_status == robovac.WorkStatus.STAND_BY:
+            return STATE_IDLE
+        elif self.robovac.work_status == robovac.WorkStatus.COMPLETED:
             return STATE_IDLE
 
     @property

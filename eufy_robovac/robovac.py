@@ -44,6 +44,7 @@ class WorkStatus(StringEnum):
     STAND_BY = 'standby'
     SLEEPING = 'Sleeping'
     RECHARGING = 'Recharge'
+    COMPLETED = 'completed'
 
 
 class CleanSpeed(StringEnum):
