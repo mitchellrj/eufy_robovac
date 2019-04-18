@@ -33,13 +33,13 @@ CONFIG_SCHEMA = vol.Schema({
 
 def setup(hass, config):
     """Set up Eufy devices."""
-    for device_info in config[DOMAIN][CONF_DEVICES]:
+    for device_info in config.get(DOMAIN, {}).get(CONF_DEVICES, []):
         device = {}
         device['address'] = device_info[CONF_ADDRESS]
         device['local_key'] = device_info[CONF_ACCESS_TOKEN]
         device['device_id'] = device_info[CONF_ID]
         device['name'] = device_info[CONF_NAME]
         device['model'] = device_info[CONF_TYPE]
-        discovery.load_platform(hass, 'vacuum', DOMAIN, device)
+        discovery.load_platform(hass, 'vacuum', DOMAIN, device, config)
 
     return True
