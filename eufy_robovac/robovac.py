@@ -101,7 +101,7 @@ class Robovac(TuyaDevice):
         await self.async_set({self.GO_HOME: True}, callback)
 
     async def async_set_work_mode(self, work_mode, callback=None):
-        await self.async_set({self.WORK_MODE: work_mode}, callback)
+        await self.async_set({self.WORK_MODE: str(work_mode)}, callback)
 
     async def async_find_robot(self, callback=None):
         await self.async_set({self.FIND_ROBOT: True}, callback)

@@ -413,14 +413,6 @@ def _call_async(fn, *args):
     loop.call_soon(wrapper, fn, *args)
 
 
-def async_connection_needed(fn):
-    def wrapper(self, *args, **kwargs):
-        await self.async_connect()
-        return await fn(*args, **kwargs)
-
-    return wrapper
-
-
 class TuyaDevice:
     """Represents a generic Tuya device."""
 
@@ -465,6 +457,8 @@ class TuyaDevice:
         return "{} ({}:{})".format(self.device_id, self.host, self.port)
 
     async def async_connect(self, callback=None):
+        if self._connected:
+            return
         sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
         _LOGGER.debug("Connecting to {}".format(self))
@@ -555,8 +549,8 @@ class TuyaDevice:
 
         asyncio.ensure_future(self._async_handle_message())
 
-    @async_connection_needed
     async def _async_send(self, message, retries=4):
+        await self.async_connect()
         _LOGGER.debug("Sending to {}: {}".format(self, message))
         try:
             self.writer.write(message.bytes())

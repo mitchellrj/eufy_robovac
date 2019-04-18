@@ -115,8 +115,6 @@ class EufyVacuum(VacuumDevice):
         """Return the status of the vacuum cleaner."""
         if self.robovac.error_code != robovac.ErrorCode.NO_ERROR:
             return STATE_ERROR
-        elif self.robovac.work_status == robovac.WorkStatus.RECHARGE:
-            return STATE_ERROR
         elif self.robovac.go_home:
             return STATE_RETURNING
         elif self.robovac.work_status == robovac.WorkStatus.RUNNING:
@@ -133,7 +131,7 @@ class EufyVacuum(VacuumDevice):
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
-        return self._available
+        return True
 
     async def async_return_to_base(self, **kwargs):
         """Set the vacuum cleaner to return to the dock."""
@@ -159,6 +157,10 @@ class EufyVacuum(VacuumDevice):
     async def async_turn_off(self, **kwargs):
         """Turn the vacuum off and return to home."""
         await self.async_return_to_base()
+
+    async def async_start(self, **kwargs):
+        """Resume the cleaning cycle."""
+        await self.async_turn_on()
 
     async def async_resume(self, **kwargs):
         """Resume the cleaning cycle."""

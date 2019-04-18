@@ -30,9 +30,9 @@ class DeviceProperty:
         self.type_cast = type_cast
         self.read_only = read_only
 
-    def __get__(self, instance):
+    def __get__(self, instance, owner):
         value = instance.state.get(self.key)
-        if value is not None and type_cast is not None:
+        if value is not None and self.type_cast is not None:
             value = self.type_cast(value)
         return value
 
