@@ -45,6 +45,7 @@ from json.decoder import JSONDecodeError
 import logging
 import socket
 import struct
+import sys
 import time
 
 from cryptography.hazmat.backends.openssl import backend as openssl_backend
@@ -156,7 +157,7 @@ class RequestResponseCommandMismatch(TuyaException):
 
 
 class TuyaCipher:
-    """The Tuya encryption cipher"""
+    """Tuya cryptographic helpers."""
 
     def __init__(self, key, version):
         """Initialize the cipher."""
@@ -217,6 +218,7 @@ class TuyaCipher:
         digest.update(to_hash.encode('utf8'))
         intermediate = digest.finalize().hex()
         return intermediate[8:24]
+
 
 def crc(data):
     """Calculate the Tuya-flavored CRC of some data."""
@@ -395,6 +397,22 @@ class Message:
         return cls(command, payload, sequence)
 
 
+def _call_async(fn, *args):
+    loop = None
+    if sys.version_info >= (3, 7):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
+    loop = asyncio.get_event_loop()
+
+    def wrapper(fn, *args):
+        asyncio.ensure_future(fn(*args))
+
+    loop.call_soon(wrapper, fn, *args)
+
+
 class TuyaDevice:
     """Represents a generic Tuya device."""
 
@@ -438,10 +456,6 @@ class TuyaDevice:
     def __str__(self):
         return "{} ({}:{})".format(self.device_id, self.host, self.port)
 
-    @property
-    def loop(self):
-        return asyncio.get_running_loop()
-
     async def async_connect(self, callback=None):
         sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
@@ -482,7 +496,10 @@ class TuyaDevice:
             'dps': dps
         }
         message = Message(Message.SET_COMMAND, payload, encrypt_for=self)
-        return await message.async_send(self, callback)
+        await message.async_send(self, callback)
+
+    def set(self, dps):
+        _call_async(self.async_set, dps)
 
     async def _async_ping(self):
         self.last_ping = time.time()

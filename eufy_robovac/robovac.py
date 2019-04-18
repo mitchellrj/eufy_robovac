@@ -16,43 +16,53 @@
 
 import logging
 
+from .property import DeviceProperty, StringEnum
 from .tuya import TuyaDevice
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class WorkMode:
+class WorkMode(StringEnum):
     AUTO = 'auto'
     NO_SWEEP = 'Nosweep'
     SMALL_ROOM = 'SmallRoom'
     EDGE = 'Edge'
-    Spot = 'Spot'
+    SPOT = 'Spot'
 
 
-class Direction:
+class Direction(StringEnum):
     LEFT = 'left'
     RIGHT = 'right'
     FORWARD = 'forward'
     BACKWARD = 'backward'
 
 
-class WorkStatus:
+class WorkStatus(StringEnum):
+    RUNNING = 'Running'
     CHARGING = 'Charging'
     STAND_BY = 'standby'
     SLEEPING = 'Sleeping'
     RECHARGING = 'Recharge'
 
 
-class CleanSpeed:
+class CleanSpeed(StringEnum):
     NO_SUCTION = 'No_suction'
     STANDARD = 'Standard'
     BOOST_IQ = 'Boost_IQ'
     MAX = 'Max'
 
 
-class ErrorCode:
-    pass
+class ErrorCode(StringEnum):
+    NO_ERROR = 'no_error'
+    WHEEL_STUCK = 'Wheel_stuck'
+    R_BRUSH_STUCK = 'R_brush_stuck'
+    CRASH_BAR_STUCK = 'Crash_bar_stuck'
+    SENSOR_DIRTY = 'sensor_dirty'
+    NOT_ENOUGH_POWER = 'N_enough_pow'
+    STUCK_5_MIN = 'Stuck_5_min'
+    FAN_STUCK = 'Fan_stuck'
+    S_BRUSH_STUCK = 'S_brush_stuck'
 
 
 class Robovac(TuyaDevice):
@@ -67,23 +77,34 @@ class Robovac(TuyaDevice):
     FIND_ROBOT = '103'
     BATTERY_LEVEL = '104'
     ERROR_CODE = '106'
-    KEY_NAMES = {
-        PLAY_PAUSE: 'play/pause',
-        DIRECTION: 'direction',
-        WORK_MODE: 'work mode',
-        WORK_STATUS: 'work status',
-        GO_HOME: 'go home',
-        CLEAN_SPEED: 'clean speed',
-        FIND_ROBOT: 'find robot',
-        BATTERY_LEVEL: 'battery level',
-        ERROR_CODE: 'error code'
-    }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    play_pause = DeviceProperty(PLAY_PAUSE)
+    direction = DeviceProperty(DIRECTION)
+    work_mode = DeviceProperty(WORK_MODE, WorkMode)
+    work_status = DeviceProperty(WORK_STATUS, WorkStatus, True)
+    go_home = DeviceProperty(GO_HOME)
+    clean_speed = DeviceProperty(CLEAN_SPEED, CleanSpeed)
+    find_robot = DeviceProperty(FIND_ROBOT)
+    battery_level = DeviceProperty(BATTERY_LEVEL, read_only=True)
+    error_code = DeviceProperty(ERROR_CODE, ErrorCode, True)
+
+    async def async_play(self, callback=None):
+        await self.async_set({self.PLAY_PAUSE: True}, callback)
+
+    async def async_pause(self, callback=None):
+        await self.async_set({self.PLAY_PAUSE: False}, callback)
 
     async def async_start_cleaning(self, callback=None):
-        await self.async_set({self.WORK_MODE: WorkMode.AUTO}, callback)
+        await self.async_set({self.WORK_MODE: str(WorkMode.AUTO)}, callback)
 
     async def async_go_home(self, callback=None):
         await self.async_set({self.GO_HOME: True}, callback)
+
+    async def async_set_work_mode(self, work_mode, callback=None):
+        await self.async_set({self.WORK_MODE: work_mode}, callback)
+
+    async def async_find_robot(self, callback=None):
+        await self.async_set({self.FIND_ROBOT: True}, callback)
+
+    async def async_set_clean_speed(self, clean_speed, callback=None):
+        await self.async_set({self.CLEAN_SPEED: str(clean_speed)}, callback)
