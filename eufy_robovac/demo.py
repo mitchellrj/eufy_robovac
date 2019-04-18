@@ -30,20 +30,16 @@ async def cleaning_started_callback(message, device):
     print("Cleaning started.")
 
 
-async def go_home_callback(message, device):
-    print("Device on its way home.")
-
-
 async def async_main(device_id, local_key, ip, *args, **kwargs):
     r = Robovac(device_id, local_key, ip, *args, **kwargs)
     await r.async_connect(connected_callback)
-    await asyncio.sleep(5)
+    await asyncio.sleep(1)
     print("Starting cleaning...")
     await r.async_start_cleaning(cleaning_started_callback)
-    await asyncio.sleep(30)
-    print("Sending home...")
-    await r.async_go_home(go_home_callback)
-    await asyncio.sleep(10)
+    await asyncio.sleep(5)
+    print("Pausing...")
+    r.play_pause = False
+    await asyncio.sleep(1)
     print("Disconnecting...")
     await r.async_disconnect()
 
