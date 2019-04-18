@@ -11,7 +11,7 @@ from homeassistant.components.vacuum import (
     VacuumDevice)
 
 
-import .robovac
+from . import robovac
 
 _LOGGER = logging.getLogger(__name__)
 
