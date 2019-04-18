@@ -21,10 +21,10 @@ FAN_SPEED_STANDARD = 'Standard'
 FAN_SPEED_BOOST_IQ = 'Boost IQ'
 FAN_SPEED_MAX = 'Max'
 FAN_SPEEDS = {
-    robovac.Robovac.CleanSpeed.NO_SUCTION: FAN_SPEED_OFF,
-    robovac.Robovac.CleanSpeed.STANDARD: FAN_SPEED_STANDARD,
-    robovac.Robovac.CleanSpeed.BOOST_IQ: FAN_SPEED_BOOST_IQ,
-    robovac.Robovac.CleanSpeed.MAX: FAN_SPEED_MAX,
+    robovac.CleanSpeed.NO_SUCTION: FAN_SPEED_OFF,
+    robovac.CleanSpeed.STANDARD: FAN_SPEED_STANDARD,
+    robovac.CleanSpeed.BOOST_IQ: FAN_SPEED_BOOST_IQ,
+    robovac.CleanSpeed.MAX: FAN_SPEED_MAX,
 }
 
 
@@ -87,7 +87,7 @@ class EufyVacuum(VacuumDevice):
     @property
     def is_on(self):
         """Return true if device is on."""
-        return self.robovac.work_status == robovac.Robovac.WorkStatus.RUNNING
+        return self.robovac.work_status == robovac.WorkStatus.RUNNING
 
     @property
     def supported_features(self):
@@ -113,21 +113,21 @@ class EufyVacuum(VacuumDevice):
     @property
     def status(self):
         """Return the status of the vacuum cleaner."""
-        if self.robovac.error_code != robovac.Robovac.ErrorCode.NO_ERROR:
+        if self.robovac.error_code != robovac.ErrorCode.NO_ERROR:
             return STATE_ERROR
-        elif self.robovac.work_status == robovac.Robovac.WorkStatus.RECHARGE:
+        elif self.robovac.work_status == robovac.WorkStatus.RECHARGE:
             return STATE_ERROR
         elif self.robovac.go_home:
             return STATE_RETURNING
-        elif self.robovac.work_status == robovac.Robovac.WorkStatus.RUNNING:
+        elif self.robovac.work_status == robovac.WorkStatus.RUNNING:
             return STATE_CLEANING
-        elif self.robovac.work_status == robovac.Robovac.WorkStatus.CHARGING:
+        elif self.robovac.work_status == robovac.WorkStatus.CHARGING:
             return STATE_DOCKED
-        elif self.robovac.work_status == robovac.Robovac.WorkStatus.RECHARGING:
+        elif self.robovac.work_status == robovac.WorkStatus.RECHARGING:
             return STATE_DOCKED
-        elif self.robovac.work_status == robovac.Robovac.WorkStatus.SLEEPING:
+        elif self.robovac.work_status == robovac.WorkStatus.SLEEPING:
             return STATE_DOCKED
-        elif self.robovac.work_status == robovac.Robovac.WorkStatus.STAND_BY:
+        elif self.robovac.work_status == robovac.WorkStatus.STAND_BY:
             return STATE_IDLE
 
     @property
@@ -141,7 +141,7 @@ class EufyVacuum(VacuumDevice):
 
     async def async_clean_spot(self, **kwargs):
         """Perform a spot clean-up."""
-        await self.robovac.async_set_work_mode(robovac.Robovac.WorkMode.SPOT)
+        await self.robovac.async_set_work_mode(robovac.WorkMode.SPOT)
 
     async def async_locate(self, **kwargs):
         """Locate the vacuum cleaner."""
@@ -154,7 +154,7 @@ class EufyVacuum(VacuumDevice):
 
     async def async_turn_on(self, **kwargs):
         """Turn the vacuum on."""
-        await self.robovac.async_set_work_mode(robovac.Robovac.WorkMode.AUTO)
+        await self.robovac.async_set_work_mode(robovac.WorkMode.AUTO)
 
     async def async_turn_off(self, **kwargs):
         """Turn the vacuum off and return to home."""
