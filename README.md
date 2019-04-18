@@ -26,3 +26,19 @@ The demo:
 * sends the device home,
 * waits 10 seconds,
 * disconnects & exits
+
+## Home Assistant integration
+
+**EXPERIMENTAL!**
+
+Copy the contents of the `eufy_robovac` folder to `custom_components/eufy_vacuum` in your home assistant configuration directory. Then add the following to your configuration file:
+
+```
+eufy_vacuum:
+  devices:
+  - name: Robovac
+    address: 192.168.1.80
+    access_token: YOUR LOCAL KEY HERE
+    id: YOUR DEVICE ID HERE
+    type: T2118
+```
