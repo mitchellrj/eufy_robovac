@@ -466,8 +466,8 @@ class TuyaDevice:
             sock.connect((self.host, self.port))
         except socket.timeout as e:
             raise ConnectionTimeoutException("Connection timed out") from e
-        self._connected = True
         self.reader, self.writer = await asyncio.open_connection(sock=sock)
+        self._connected = True
 
         asyncio.ensure_future(self._async_handle_message())
         asyncio.ensure_future(self._async_ping())
