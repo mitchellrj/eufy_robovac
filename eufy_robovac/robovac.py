@@ -39,11 +39,17 @@ class Direction(StringEnum):
 
 
 class WorkStatus(StringEnum):
+    # Cleaning
     RUNNING = 'Running'
+    # In the dock, charging
     CHARGING = 'Charging'
+    # Not in the dock, paused
     STAND_BY = 'standby'
+    # Not in the dock - goes into this state after being paused for a while
     SLEEPING = 'Sleeping'
+    # ? Not sure how this differs from charging
     RECHARGING = 'Recharge'
+    # In the dock, full charged
     COMPLETED = 'completed'
 
 
