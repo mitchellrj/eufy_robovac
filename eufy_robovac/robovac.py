@@ -47,8 +47,8 @@ class WorkStatus(StringEnum):
     STAND_BY = 'standby'
     # Not in the dock - goes into this state after being paused for a while
     SLEEPING = 'Sleeping'
-    # ? Not sure how this differs from charging
-    RECHARGING = 'Recharge'
+    # Going home because battery is depleted
+    RECHARGE_NEEDED = 'Recharge'
     # In the dock, full charged
     COMPLETED = 'completed'
 

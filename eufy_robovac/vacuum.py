@@ -121,8 +121,9 @@ class EufyVacuum(VacuumDevice):
             return STATE_CLEANING
         elif self.robovac.work_status == robovac.WorkStatus.CHARGING:
             return STATE_DOCKED
-        elif self.robovac.work_status == robovac.WorkStatus.RECHARGING:
-            return STATE_DOCKED
+        elif self.robovac.work_status == robovac.WorkStatus.RECHARGE_NEEDED:
+            # Should be captured by `go_home` above, but just in case
+            return STATE_RETURNING
         elif self.robovac.work_status == robovac.WorkStatus.SLEEPING:
             return STATE_IDLE
         elif self.robovac.work_status == robovac.WorkStatus.STAND_BY:
