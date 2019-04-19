@@ -124,11 +124,11 @@ class EufyVacuum(VacuumDevice):
         elif self.robovac.work_status == robovac.WorkStatus.RECHARGING:
             return STATE_DOCKED
         elif self.robovac.work_status == robovac.WorkStatus.SLEEPING:
-            return STATE_DOCKED
+            return STATE_IDLE
         elif self.robovac.work_status == robovac.WorkStatus.STAND_BY:
             return STATE_IDLE
         elif self.robovac.work_status == robovac.WorkStatus.COMPLETED:
-            return STATE_IDLE
+            return STATE_DOCKED
 
     @property
     def available(self) -> bool:
