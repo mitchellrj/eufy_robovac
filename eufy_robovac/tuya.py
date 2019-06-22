@@ -166,23 +166,29 @@ class TuyaCipher:
         self.cipher = Cipher(algorithms.AES(key.encode('ascii')), modes.ECB(),
                              backend=openssl_backend)
 
-    def has_prefix(self, encrypted_data):
+    def get_prefix_size_and_validate(self, encrypted_data):
         version = tuple(map(int, encrypted_data[:3].decode('utf8').split('.')))
         if version != self.version:
-            return False
-        hash = encrypted_data[3:19].decode('ascii')
-        expected_hash = self.hash(encrypted_data[19:])
-        if hash != expected_hash:
-            return False
+            return 0
+        if version < (3, 3):
+            hash = encrypted_data[3:19].decode('ascii')
+            expected_hash = self.hash(encrypted_data[19:])
+            if hash != expected_hash:
+                return 0
+            return 19
+        else:
+            _, sequence, __, ___ = struct.unpack_from(
+                '>IIIH', encrypted_data, 3)
 
-        return True
+        return 15
 
     def decrypt(self, data):
-        # Strip version and MD5 hash
-        if self.has_prefix(data):
-            data = data[19:]
+        prefix_size = self.get_prefix_size_and_validate(data)
+        data = data[prefix_size:]
         decryptor = self.cipher.decryptor()
-        decrypted_data = decryptor.update(base64.b64decode(data))
+        if self.version < (3, 3):
+            data = base64.b64decode(data)
+        decrypted_data = decryptor.update(data)
         decrypted_data += decryptor.finalize()
         unpadder = PKCS7(128).unpadder()
         unpadded_data = unpadder.update(decrypted_data)
@@ -198,15 +204,16 @@ class TuyaCipher:
         encrypted_data = encryptor.update(padded_data)
         encrypted_data += encryptor.finalize()
 
-        payload = base64.b64encode(encrypted_data)
+        prefix = '.'.join(map(str, self.version)).encode('utf8')
+        if self.version < (3, 3):
+            payload = base64.b64encode(encrypted_data)
+            hash = self.hash(payload)
+            prefix += hash.encode('utf8')
+        else:
+            payload = encrypted_data
+            prefix += b'\x00' * 12
 
-        hash = self.hash(payload)
-        result = "{}{}".format(
-            '.'.join(map(str, self.version)),
-            hash
-        ).encode('utf8') + payload
-
-        return result
+        return prefix + payload
 
     def hash(self, data):
         digest = Hash(MD5(), backend=openssl_backend)
@@ -367,32 +374,23 @@ class Message:
 
         payload = None
         if payload_data:
-            try_decrypt = False
+            try:
+                payload_data = cipher.decrypt(payload_data)
+            except ValueError as e:
+                pass
             try:
                 payload_text = payload_data.decode('utf8')
-            except UnicodeDecodeError:
-                try_decrypt = True
-            else:
-                try:
-                    payload = json.loads(payload_text)
-                except json.decoder.JSONDecodeError:
-                    # data may be encrypted
-                    try_decrypt = True
-
-            if try_decrypt:
-                try:
-                    payload_data = cipher.decrypt(payload_data)
-                except ValueError as e:
-                    _LOGGER.debug(payload_data.hex())
-                    _LOGGER.error(e)
-                    raise MessageDecodeFailed() from e
-
+            except UnicodeDecodeError as e:
+                _LOGGER.debug(payload_data.hex())
+                _LOGGER.error(e)
+                raise MessageDecodeFailed() from e
             try:
-                payload = payload_data.decode('utf8')
-                payload = json.loads(payload)
-            except (UnicodeDecodeError, json.decoder.JSONDecodeError):
-                # keep it as bytes
-                pass
+                payload = json.loads(payload_text)
+            except json.decoder.JSONDecodeError as e:
+                # data may be encrypted
+                _LOGGER.debug(payload_data.hex())
+                _LOGGER.error(e)
+                raise MessageDecodeFailed() from e
 
         return cls(command, payload, sequence)
 
@@ -485,7 +483,8 @@ class TuyaDevice:
             'gwId': self.gateway_id,
             'devId': self.device_id
         }
-        message = Message(Message.GET_COMMAND, payload)
+        maybe_self = None if self.version < (3, 3) else self
+        message = Message(Message.GET_COMMAND, payload, encrypt_for=maybe_self)
         return await message.async_send(self, callback)
 
     async def async_set(self, dps, callback=None):
@@ -505,7 +504,9 @@ class TuyaDevice:
 
     async def _async_ping(self):
         self.last_ping = time.time()
-        message = Message(Message.PING_COMMAND, sequence=0)
+        maybe_self = None if self.version < (3, 3) else self
+        message = Message(Message.PING_COMMAND, sequence=0,
+                          encrypt_for=maybe_self)
         await self._async_send(message)
         await asyncio.sleep(self.PING_INTERVAL)
         if self.last_pong < self.last_ping:
