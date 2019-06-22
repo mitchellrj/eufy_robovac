@@ -260,7 +260,7 @@ class Message:
             self.encrypt = True
 
     def __repr__(self):
-        return "{}({}, {}, {})".format(
+        return "{}({!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             hex(self.command),
             repr(self.payload),
@@ -301,6 +301,8 @@ class Message:
             payload_data +
             footer
         )
+
+    __bytes__ = bytes
 
     class AsyncWrappedCallback:
         def __init__(self, request, callback):
@@ -416,8 +418,8 @@ class TuyaDevice:
 
     PING_INTERVAL = 10
 
-    def __init__(self, device_id, local_key, host, port=6668, gateway_id=None,
-                 version=(3, 1), timeout=10):
+    def __init__(self, device_id, host, local_key=None, port=6668,
+                 gateway_id=None, version=(3, 3), timeout=10):
         """Initialize the device."""
         self.device_id = device_id
         self.host = host
@@ -443,12 +445,12 @@ class TuyaDevice:
         self._connected = False
 
     def __repr__(self):
-        return "{}({}, {}, {}, {})".format(
+        return "{}({!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             self.device_id,
             self.host,
             self.port,
-            self.local_key
+            self.cipher.key
         )
 
     def __str__(self):
