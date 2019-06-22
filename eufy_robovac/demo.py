@@ -15,10 +15,14 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import pprint
 import sys
 
 from eufy_robovac.robovac import Robovac
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 async def connected_callback(message, device):
