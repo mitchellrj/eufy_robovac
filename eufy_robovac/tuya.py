@@ -166,8 +166,11 @@ class TuyaCipher:
         self.cipher = Cipher(algorithms.AES(key.encode('ascii')), modes.ECB(),
                              backend=openssl_backend)
 
-    def get_prefix_size_and_validate(self, encrypted_data):
-        version = tuple(map(int, encrypted_data[:3].decode('utf8').split('.')))
+    def get_prefix_size_and_validate(self, command, encrypted_data):
+        try:
+            version = tuple(map(int, encrypted_data[:3].decode('utf8').split('.')))
+        except UnicodeDecodeError:
+            version = (0, 0)
         if version != self.version:
             return 0
         if version < (3, 3):
@@ -177,13 +180,15 @@ class TuyaCipher:
                 return 0
             return 19
         else:
-            _, sequence, __, ___ = struct.unpack_from(
-                '>IIIH', encrypted_data, 3)
+            if command in (Message.SET_COMMAND, Message.GRATUITOUS_UPDATE):
+                _, sequence, __, ___ = struct.unpack_from(
+                    '>IIIH', encrypted_data, 3)
+                return 15
+        return 0
+        
 
-        return 15
-
-    def decrypt(self, data):
-        prefix_size = self.get_prefix_size_and_validate(data)
+    def decrypt(self, command, data):
+        prefix_size = self.get_prefix_size_and_validate(command, data)
         data = data[prefix_size:]
         decryptor = self.cipher.decryptor()
         if self.version < (3, 3):
@@ -196,13 +201,15 @@ class TuyaCipher:
 
         return unpadded_data
 
-    def encrypt(self, data):
-        padder = PKCS7(128).padder()
-        padded_data = padder.update(data)
-        padded_data += padder.finalize()
-        encryptor = self.cipher.encryptor()
-        encrypted_data = encryptor.update(padded_data)
-        encrypted_data += encryptor.finalize()
+    def encrypt(self, command, data):
+        encrypted_data = b''
+        if data:
+            padder = PKCS7(128).padder()
+            padded_data = padder.update(data)
+            padded_data += padder.finalize()
+            encryptor = self.cipher.encryptor()
+            encrypted_data = encryptor.update(padded_data)
+            encrypted_data += encryptor.finalize()
 
         prefix = '.'.join(map(str, self.version)).encode('utf8')
         if self.version < (3, 3):
@@ -211,7 +218,10 @@ class TuyaCipher:
             prefix += hash.encode('utf8')
         else:
             payload = encrypted_data
-            prefix += b'\x00' * 12
+            if command in (Message.SET_COMMAND, Message.GRATUITOUS_UPDATE):
+                prefix += b'\x00' * 12
+            else:
+                prefix = b''
 
         return prefix + payload
 
@@ -260,10 +270,10 @@ class Message:
             self.encrypt = True
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r})".format(
+        return "{}({}, {!r}, {!r})".format(
             self.__class__.__name__,
             hex(self.command),
-            repr(self.payload),
+            self.payload,
             self.sequence)
 
     def hex(self):
@@ -280,9 +290,9 @@ class Message:
             payload_data = payload_data.encode('utf8')
 
         if self.encrypt:
-            payload_data = self.device.cipher.encrypt(payload_data)
+            payload_data = self.device.cipher.encrypt(self.command, payload_data)
 
-        payload_size = len(payload_data) + 8
+        payload_size = len(payload_data) + struct.calcsize(MESSAGE_SUFFIX_FORMAT)
 
         header = struct.pack(
             MESSAGE_PREFIX_FORMAT,
@@ -291,9 +301,13 @@ class Message:
             self.command,
             payload_size,
         )
+        if self.device and self.device.version >= (3, 3):
+            checksum = crc(header + payload_data)
+        else:
+            checksum = crc(payload_data)
         footer = struct.pack(
             MESSAGE_SUFFIX_FORMAT,
-            crc(payload_data),
+            checksum,
             MAGIC_SUFFIX
         )
         return (
@@ -354,30 +368,30 @@ class Message:
         except struct.error as e:
             raise InvalidMessage("Unable to unpack return code.") from e
         if return_code >> 8:
-            payload_data = data[header_size:header_size + payload_size - 8]
+            payload_data = data[header_size:header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)]
             return_code = None
         else:
-            payload_data = data[header_size + 4:header_size + payload_size - 8]
+            payload_data = data[header_size + struct.calcsize('>I'):header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)]
 
         try:
             expected_crc, suffix = struct.unpack_from(
                 MESSAGE_SUFFIX_FORMAT,
                 data,
-                header_size + payload_size - 8
+                header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)
             )
         except struct.error as e:
             raise InvalidMessage("Invalid message suffix format.") from e
         if suffix != MAGIC_SUFFIX:
             raise InvalidMessage("Magic suffix missing from message")
 
-        actual_crc = crc(data[:header_size + payload_size - 8])
+        actual_crc = crc(data[:header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)])
         if expected_crc != actual_crc:
             raise InvalidMessage("CRC check failed")
 
         payload = None
         if payload_data:
             try:
-                payload_data = cipher.decrypt(payload_data)
+                payload_data = cipher.decrypt(command, payload_data)
             except ValueError as e:
                 pass
             try:
@@ -492,7 +506,6 @@ class TuyaDevice:
     async def async_set(self, dps, callback=None):
         t = int(time.time())
         payload = {
-            'gwId': self.gateway_id,
             'devId': self.device_id,
             'uid': '',
             't': t,
