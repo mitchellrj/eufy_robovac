@@ -15,10 +15,14 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import pprint
 import sys
 
 from eufy_robovac.robovac import Robovac
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 async def connected_callback(message, device):
@@ -30,8 +34,8 @@ async def cleaning_started_callback(message, device):
     print("Cleaning started.")
 
 
-async def async_main(device_id, local_key, ip, *args, **kwargs):
-    r = Robovac(device_id, local_key, ip, *args, **kwargs)
+async def async_main(device_id, ip, local_key=None, *args, **kwargs):
+    r = Robovac(device_id, ip, local_key, *args, **kwargs)
     await r.async_connect(connected_callback)
     await asyncio.sleep(1)
     print("Starting cleaning...")

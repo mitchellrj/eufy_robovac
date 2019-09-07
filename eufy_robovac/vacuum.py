@@ -66,8 +66,8 @@ class EufyVacuum(VacuumDevice):
             v: k for k, v in self._config['fan_speeds'].items()}
         self._device_id = device_config['device_id']
         self.robovac = robovac.Robovac(
-            device_config['device_id'], device_config['local_key'],
-            device_config['address'])
+            device_config['device_id'], device_config['address'],
+            device_config['local_key'])
         self._name = device_config['name']
 
     async def async_update(self):

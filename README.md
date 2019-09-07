@@ -15,7 +15,7 @@ bin/pip install -e .
 
 ## Demo usage
 ```
-bin/demo DEVICE_ID LOCAL_KEY IP
+bin/demo DEVICE_ID IP LOCAL_KEY
 ```
 
 The demo:

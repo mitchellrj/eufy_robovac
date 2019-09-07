@@ -166,23 +166,34 @@ class TuyaCipher:
         self.cipher = Cipher(algorithms.AES(key.encode('ascii')), modes.ECB(),
                              backend=openssl_backend)
 
-    def has_prefix(self, encrypted_data):
-        version = tuple(map(int, encrypted_data[:3].decode('utf8').split('.')))
+    def get_prefix_size_and_validate(self, command, encrypted_data):
+        try:
+            version = tuple(map(int, encrypted_data[:3].decode('utf8').split('.')))
+        except UnicodeDecodeError:
+            version = (0, 0)
         if version != self.version:
-            return False
-        hash = encrypted_data[3:19].decode('ascii')
-        expected_hash = self.hash(encrypted_data[19:])
-        if hash != expected_hash:
-            return False
+            return 0
+        if version < (3, 3):
+            hash = encrypted_data[3:19].decode('ascii')
+            expected_hash = self.hash(encrypted_data[19:])
+            if hash != expected_hash:
+                return 0
+            return 19
+        else:
+            if command in (Message.SET_COMMAND, Message.GRATUITOUS_UPDATE):
+                _, sequence, __, ___ = struct.unpack_from(
+                    '>IIIH', encrypted_data, 3)
+                return 15
+        return 0
+        
 
-        return True
-
-    def decrypt(self, data):
-        # Strip version and MD5 hash
-        if self.has_prefix(data):
-            data = data[19:]
+    def decrypt(self, command, data):
+        prefix_size = self.get_prefix_size_and_validate(command, data)
+        data = data[prefix_size:]
         decryptor = self.cipher.decryptor()
-        decrypted_data = decryptor.update(base64.b64decode(data))
+        if self.version < (3, 3):
+            data = base64.b64decode(data)
+        decrypted_data = decryptor.update(data)
         decrypted_data += decryptor.finalize()
         unpadder = PKCS7(128).unpadder()
         unpadded_data = unpadder.update(decrypted_data)
@@ -190,23 +201,29 @@ class TuyaCipher:
 
         return unpadded_data
 
-    def encrypt(self, data):
-        padder = PKCS7(128).padder()
-        padded_data = padder.update(data)
-        padded_data += padder.finalize()
-        encryptor = self.cipher.encryptor()
-        encrypted_data = encryptor.update(padded_data)
-        encrypted_data += encryptor.finalize()
+    def encrypt(self, command, data):
+        encrypted_data = b''
+        if data:
+            padder = PKCS7(128).padder()
+            padded_data = padder.update(data)
+            padded_data += padder.finalize()
+            encryptor = self.cipher.encryptor()
+            encrypted_data = encryptor.update(padded_data)
+            encrypted_data += encryptor.finalize()
 
-        payload = base64.b64encode(encrypted_data)
+        prefix = '.'.join(map(str, self.version)).encode('utf8')
+        if self.version < (3, 3):
+            payload = base64.b64encode(encrypted_data)
+            hash = self.hash(payload)
+            prefix += hash.encode('utf8')
+        else:
+            payload = encrypted_data
+            if command in (Message.SET_COMMAND, Message.GRATUITOUS_UPDATE):
+                prefix += b'\x00' * 12
+            else:
+                prefix = b''
 
-        hash = self.hash(payload)
-        result = "{}{}".format(
-            '.'.join(map(str, self.version)),
-            hash
-        ).encode('utf8') + payload
-
-        return result
+        return prefix + payload
 
     def hash(self, data):
         digest = Hash(MD5(), backend=openssl_backend)
@@ -253,11 +270,13 @@ class Message:
             self.encrypt = True
 
     def __repr__(self):
-        return "{}({}, {}, {})".format(
+        return "{}({}, {!r}, {!r}, {})".format(
             self.__class__.__name__,
             hex(self.command),
-            repr(self.payload),
-            self.sequence)
+            self.payload,
+            self.sequence,
+            "<Device {}>".format(self.device) if self.device else None
+            )
 
     def hex(self):
         return self.bytes().hex()
@@ -273,9 +292,9 @@ class Message:
             payload_data = payload_data.encode('utf8')
 
         if self.encrypt:
-            payload_data = self.device.cipher.encrypt(payload_data)
+            payload_data = self.device.cipher.encrypt(self.command, payload_data)
 
-        payload_size = len(payload_data) + 8
+        payload_size = len(payload_data) + struct.calcsize(MESSAGE_SUFFIX_FORMAT)
 
         header = struct.pack(
             MESSAGE_PREFIX_FORMAT,
@@ -284,9 +303,13 @@ class Message:
             self.command,
             payload_size,
         )
+        if self.device and self.device.version >= (3, 3):
+            checksum = crc(header + payload_data)
+        else:
+            checksum = crc(payload_data)
         footer = struct.pack(
             MESSAGE_SUFFIX_FORMAT,
-            crc(payload_data),
+            checksum,
             MAGIC_SUFFIX
         )
         return (
@@ -294,6 +317,8 @@ class Message:
             payload_data +
             footer
         )
+
+    __bytes__ = bytes
 
     class AsyncWrappedCallback:
         def __init__(self, request, callback):
@@ -345,54 +370,45 @@ class Message:
         except struct.error as e:
             raise InvalidMessage("Unable to unpack return code.") from e
         if return_code >> 8:
-            payload_data = data[header_size:header_size + payload_size - 8]
+            payload_data = data[header_size:header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)]
             return_code = None
         else:
-            payload_data = data[header_size + 4:header_size + payload_size - 8]
+            payload_data = data[header_size + struct.calcsize('>I'):header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)]
 
         try:
             expected_crc, suffix = struct.unpack_from(
                 MESSAGE_SUFFIX_FORMAT,
                 data,
-                header_size + payload_size - 8
+                header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)
             )
         except struct.error as e:
             raise InvalidMessage("Invalid message suffix format.") from e
         if suffix != MAGIC_SUFFIX:
             raise InvalidMessage("Magic suffix missing from message")
 
-        actual_crc = crc(data[:header_size + payload_size - 8])
+        actual_crc = crc(data[:header_size + payload_size - struct.calcsize(MESSAGE_SUFFIX_FORMAT)])
         if expected_crc != actual_crc:
             raise InvalidMessage("CRC check failed")
 
         payload = None
         if payload_data:
-            try_decrypt = False
+            try:
+                payload_data = cipher.decrypt(command, payload_data)
+            except ValueError as e:
+                pass
             try:
                 payload_text = payload_data.decode('utf8')
-            except UnicodeDecodeError:
-                try_decrypt = True
-            else:
-                try:
-                    payload = json.loads(payload_text)
-                except json.decoder.JSONDecodeError:
-                    # data may be encrypted
-                    try_decrypt = True
-
-            if try_decrypt:
-                try:
-                    payload_data = cipher.decrypt(payload_data)
-                except ValueError as e:
-                    _LOGGER.debug(payload_data.hex())
-                    _LOGGER.error(e)
-                    raise MessageDecodeFailed() from e
-
+            except UnicodeDecodeError as e:
+                _LOGGER.debug(payload_data.hex())
+                _LOGGER.error(e)
+                raise MessageDecodeFailed() from e
             try:
-                payload = payload_data.decode('utf8')
-                payload = json.loads(payload)
-            except (UnicodeDecodeError, json.decoder.JSONDecodeError):
-                # keep it as bytes
-                pass
+                payload = json.loads(payload_text)
+            except json.decoder.JSONDecodeError as e:
+                # data may be encrypted
+                _LOGGER.debug(payload_data.hex())
+                _LOGGER.error(e)
+                raise MessageDecodeFailed() from e
 
         return cls(command, payload, sequence)
 
@@ -418,8 +434,8 @@ class TuyaDevice:
 
     PING_INTERVAL = 10
 
-    def __init__(self, device_id, local_key, host, port=6668, gateway_id=None,
-                 version=(3, 1), timeout=10):
+    def __init__(self, device_id, host, local_key=None, port=6668,
+                 gateway_id=None, version=(3, 3), timeout=10):
         """Initialize the device."""
         self.device_id = device_id
         self.host = host
@@ -445,12 +461,12 @@ class TuyaDevice:
         self._connected = False
 
     def __repr__(self):
-        return "{}({}, {}, {}, {})".format(
+        return "{}({!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             self.device_id,
             self.host,
             self.port,
-            self.local_key
+            self.cipher.key
         )
 
     def __str__(self):
@@ -485,13 +501,13 @@ class TuyaDevice:
             'gwId': self.gateway_id,
             'devId': self.device_id
         }
-        message = Message(Message.GET_COMMAND, payload)
+        maybe_self = None if self.version < (3, 3) else self
+        message = Message(Message.GET_COMMAND, payload, encrypt_for=maybe_self)
         return await message.async_send(self, callback)
 
     async def async_set(self, dps, callback=None):
         t = int(time.time())
         payload = {
-            'gwId': self.gateway_id,
             'devId': self.device_id,
             'uid': '',
             't': t,
@@ -505,7 +521,9 @@ class TuyaDevice:
 
     async def _async_ping(self):
         self.last_ping = time.time()
-        message = Message(Message.PING_COMMAND, sequence=0)
+        maybe_self = None if self.version < (3, 3) else self
+        message = Message(Message.PING_COMMAND, sequence=0,
+                          encrypt_for=maybe_self)
         await self._async_send(message)
         await asyncio.sleep(self.PING_INTERVAL)
         if self.last_pong < self.last_ping:
@@ -532,7 +550,7 @@ class TuyaDevice:
         try:
             response_data = await self.reader.readuntil(MAGIC_SUFFIX_BYTES)
         except socket.error as e:
-            _LOGGER.error("Connection to {} failed".format(self))
+            _LOGGER.error("Connection to {} failed: {}".format(self, e))
             asyncio.ensure_future(self.async_disconnect())
             return
 

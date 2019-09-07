@@ -75,6 +75,7 @@ class ErrorCode(StringEnum):
 class Robovac(TuyaDevice):
     """Represents a generic Eufy Robovac."""
 
+    POWER = '1'
     PLAY_PAUSE = '2'
     DIRECTION = '3'
     WORK_MODE = '5'
@@ -85,6 +86,7 @@ class Robovac(TuyaDevice):
     BATTERY_LEVEL = '104'
     ERROR_CODE = '106'
 
+    power = DeviceProperty(POWER)
     play_pause = DeviceProperty(PLAY_PAUSE)
     direction = DeviceProperty(DIRECTION)
     work_mode = DeviceProperty(WORK_MODE, WorkMode)
