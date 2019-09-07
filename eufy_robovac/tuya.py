@@ -550,7 +550,7 @@ class TuyaDevice:
         try:
             response_data = await self.reader.readuntil(MAGIC_SUFFIX_BYTES)
         except socket.error as e:
-            _LOGGER.error("Connection to {} failed".format(self))
+            _LOGGER.error("Connection to {} failed: {}".format(self, e))
             asyncio.ensure_future(self.async_disconnect())
             return
 
