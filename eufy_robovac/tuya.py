@@ -270,11 +270,13 @@ class Message:
             self.encrypt = True
 
     def __repr__(self):
-        return "{}({}, {!r}, {!r})".format(
+        return "{}({}, {!r}, {!r}, {})".format(
             self.__class__.__name__,
             hex(self.command),
             self.payload,
-            self.sequence)
+            self.sequence,
+            "<Device {}>".format(self.device) if self.device else None
+            )
 
     def hex(self):
         return self.bytes().hex()
