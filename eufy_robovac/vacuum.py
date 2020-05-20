@@ -8,7 +8,7 @@ from homeassistant.components.vacuum import (
     SUPPORT_BATTERY, SUPPORT_CLEAN_SPOT, SUPPORT_FAN_SPEED, SUPPORT_LOCATE,
     SUPPORT_PAUSE, SUPPORT_RETURN_HOME, SUPPORT_STATUS, SUPPORT_START,
     SUPPORT_TURN_ON, SUPPORT_TURN_OFF,
-    VacuumDevice)
+    VacuumEntity)
 
 
 from . import robovac
@@ -50,7 +50,7 @@ def setup_platform(hass, config, add_entities, device_config=None):
     add_entities([EufyVacuum(device_config)], True)
 
 
-class EufyVacuum(VacuumDevice):
+class EufyVacuum(VacuumEntity):
     """Representation of a Eufy vacuum cleaner."""
 
     def __init__(self, device_config):
