@@ -33,7 +33,7 @@ The demo:
 
 Copy the contents of the `eufy_robovac` folder to `custom_components/eufy_vacuum` in your home assistant configuration directory. Then add the following to your configuration file:
 
-```
+```yaml
 eufy_vacuum:
   devices:
   - name: Robovac

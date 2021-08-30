@@ -577,4 +577,4 @@ class TuyaDevice:
                 raise ConnectionException("Failed to send data to {}".format(
                     self)) from e
             await self.async_connect()
-            await self_.async_send(message, retries=retries - 1)
+            await self._async_send(message, retries=retries - 1)

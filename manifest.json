@@ -1,0 +1,16 @@
+{
+    "domain": "eufy_vacuum",
+    "name": "Eufy Vacuum",
+    "config_flow": false,
+    "documentation": "https://github.com/mitchellrj/eufy_robovac",
+    "issue_tracker": "https://github.com/mitchellrj/eufy_robovac/issues",
+    "requirements": [],
+    "ssdp": [],
+    "zeroconf": [],
+    "homekit": {},
+    "dependencies": [],
+    "codeowners": [
+      "@mitchellrj"
+    ],
+    "version": "028"
+  }
