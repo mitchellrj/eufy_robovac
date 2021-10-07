@@ -1,0 +1,10 @@
+{
+  "domain": "eufy_vacuum",
+  "name": "Eufy Vacuum",
+  "documentation": "",
+  "issue_tracker": "",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": [],
+  "version": "0.9"
+}
