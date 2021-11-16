@@ -167,7 +167,7 @@ class EufyVacuum(VacuumEntity):
 
     async def async_resume(self, **kwargs):
         """Resume the cleaning cycle."""
-        await self.robovac.async_play()
+        await self.robovac.async_start()
 
     async def async_pause(self, **kwargs):
         """Pause the cleaning cycle."""
@@ -178,4 +178,4 @@ class EufyVacuum(VacuumEntity):
         if self.robovac.play_pause:
             await self.async_pause()
         else:
-            await self.async_play()
+            await self.async_start()
