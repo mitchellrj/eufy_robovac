@@ -86,6 +86,16 @@ class Robovac(TuyaDevice):
     BATTERY_LEVEL = '104'
     ERROR_CODE = '106'
 
+    COMMAND_DPS = {
+        'power': POWER,
+        'play_pause': PLAY_PAUSE,
+        'direction': DIRECTION,
+        'work_mode': WORK_MODE,
+        'go_home': GO_HOME,
+        'clean_speed': CLEAN_SPEED,
+        'find_robot': FIND_ROBOT,
+    }
+
     power = DeviceProperty(POWER)
     play_pause = DeviceProperty(PLAY_PAUSE)
     direction = DeviceProperty(DIRECTION)
@@ -117,3 +127,7 @@ class Robovac(TuyaDevice):
 
     async def async_set_clean_speed(self, clean_speed, callback=None):
         await self.async_set({self.CLEAN_SPEED: str(clean_speed)}, callback)
+
+    async def async_send_command(self, command, params=None, callback=None):
+        command = self.COMMAND_DPS.get(command, command)
+        await self.async_set({command: str(params[0])}, callback)

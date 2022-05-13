@@ -7,7 +7,7 @@ from homeassistant.components.vacuum import (
     STATE_ERROR,
     SUPPORT_BATTERY, SUPPORT_CLEAN_SPOT, SUPPORT_FAN_SPEED, SUPPORT_LOCATE,
     SUPPORT_PAUSE, SUPPORT_RETURN_HOME, SUPPORT_STATUS, SUPPORT_START,
-    SUPPORT_TURN_ON, SUPPORT_TURN_OFF,
+    SUPPORT_TURN_ON, SUPPORT_TURN_OFF, SUPPORT_SEND_COMMAND,
     VacuumEntity)
 
 
@@ -31,7 +31,7 @@ FAN_SPEEDS = {
 SUPPORT_ROBOVAC_T2118 = (
     SUPPORT_BATTERY | SUPPORT_CLEAN_SPOT | SUPPORT_FAN_SPEED | SUPPORT_LOCATE |
     SUPPORT_PAUSE | SUPPORT_RETURN_HOME | SUPPORT_START | SUPPORT_STATUS |
-    SUPPORT_TURN_OFF | SUPPORT_TURN_ON
+    SUPPORT_TURN_OFF | SUPPORT_TURN_ON | SUPPORT_SEND_COMMAND
 )
 
 
@@ -179,3 +179,7 @@ class EufyVacuum(VacuumEntity):
             await self.async_pause()
         else:
             await self.async_play()
+
+    async def async_send_command(self, command, params, **kwargs):
+        """Send a custom command."""
+        await self.robovac.async_send_command(command, params)
